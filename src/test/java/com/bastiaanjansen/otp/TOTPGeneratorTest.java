@@ -15,6 +15,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -219,6 +226,31 @@ class TOTPGeneratorTest {
         assertThat(generator.verify(currentCode, 1), is(true));
     }
 
+    @Test
+    void verifySameCodeConcurrentlyWithCounterStorage_onlyOneAccepted() throws Exception {
+        TOTPGenerator generator = new TOTPGenerator.Builder(secret)
+                .withCounterStorage(new InMemoryCounterStorage().forIdentifier("identifier"))
+                .build();
+        String code = generator.now();
+
+        int threads = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+        try {
+            List<Callable<Boolean>> tasks = IntStream.range(0, threads)
+                    .mapToObj(i -> (Callable<Boolean>) () -> generator.verify(code))
+                    .collect(Collectors.toList());
+
+            long accepted = 0;
+            for (Future<Boolean> future : executor.invokeAll(tasks)) {
+                if (future.get()) accepted++;
+            }
+
+            assertThat(accepted, is(1L));
+        } finally {
+            executor.shutdown();
+        }
+    }
 
     @Test
     void getURIWithIssuer() throws URISyntaxException {
