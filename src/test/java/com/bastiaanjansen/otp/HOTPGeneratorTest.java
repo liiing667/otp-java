@@ -214,6 +214,49 @@ class HOTPGeneratorTest {
         assertThrows(IllegalArgumentException.class, () -> HOTPGenerator.fromURI(uri));
     }
 
+    @Test
+    void fromURIWithWrongType_throwsIllegalArgumentException() throws URISyntaxException {
+        URI uri = new URI("otpauth://totp/issuer?counter=10&secret=" + secret);
+
+        assertThrows(IllegalArgumentException.class, () -> HOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIWithDuplicateSecret_throwsIllegalArgumentException() throws URISyntaxException {
+        URI uri = new URI("otpauth://hotp/issuer?counter=10&secret=ABC&secret=DEF");
+
+        assertThrows(IllegalArgumentException.class, () -> HOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIWithConflictingIssuer_throwsIllegalArgumentException() throws URISyntaxException {
+        URI uri = new URI("otpauth://hotp/IssuerA:account?counter=10&secret=" + secret + "&issuer=IssuerB");
+
+        assertThrows(IllegalArgumentException.class, () -> HOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIWithMatchingIssuerInLabelAndQuery_doesNotThrow() throws URISyntaxException {
+        URI uri = new URI("otpauth://hotp/issuer:account?counter=10&secret=" + secret + "&issuer=issuer");
+
+        assertDoesNotThrow(() -> HOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIRoundTripWithUrlUnsafeCharacters() throws URISyntaxException {
+        HOTPGenerator generator = new HOTPGenerator.Builder(secret)
+                .withAlgorithm(HMACAlgorithm.SHA256)
+                .withPasswordLength(8)
+                .build();
+
+        URI uri = generator.getURI(100, "mac&cheese: 100%", "ac@cou.nt");
+        HOTPGenerator parsed = HOTPGenerator.fromURI(uri);
+
+        assertThat(parsed.getAlgorithm(), is(generator.getAlgorithm()));
+        assertThat(parsed.getPasswordLength(), is(generator.getPasswordLength()));
+        assertThat(parsed.getURI(100, "mac&cheese: 100%", "ac@cou.nt").toString(), is(uri.toString()));
+    }
+
     @Nested
     class BuilderTest {
         @Test

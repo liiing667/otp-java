@@ -345,6 +345,71 @@ class TOTPGeneratorTest {
         assertThrows(URISyntaxException.class, () -> TOTPGenerator.fromURI(uri));
     }
 
+    @Test
+    void fromURIWithWrongType_throwsIllegalArgumentException() throws URISyntaxException {
+        URI uri = new URI("otpauth://hotp/issuer:account?counter=10&secret=" + secret);
+
+        assertThrows(IllegalArgumentException.class, () -> TOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIWithWrongScheme_throwsIllegalArgumentException() throws URISyntaxException {
+        URI uri = new URI("https://totp/issuer:account?secret=" + secret);
+
+        assertThrows(IllegalArgumentException.class, () -> TOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIWithDuplicateSecret_throwsIllegalArgumentException() throws URISyntaxException {
+        URI uri = new URI("otpauth://totp/issuer:account?secret=ABC&secret=DEF");
+
+        assertThrows(IllegalArgumentException.class, () -> TOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIWithConflictingIssuer_throwsIllegalArgumentException() throws URISyntaxException {
+        URI uri = new URI("otpauth://totp/IssuerA:account?secret=" + secret + "&issuer=IssuerB");
+
+        assertThrows(IllegalArgumentException.class, () -> TOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIWithMatchingIssuerInLabelAndQuery_doesNotThrow() throws URISyntaxException {
+        URI uri = new URI("otpauth://totp/issuer:account?secret=" + secret + "&issuer=issuer");
+
+        assertDoesNotThrow(() -> TOTPGenerator.fromURI(uri));
+    }
+
+    @Test
+    void fromURIGoogleAuthenticatorStyleLink() throws URISyntaxException {
+        URI uri = new URI("otpauth://totp/Example:alice%40google.com?secret=JBSWY3DPEHPK3PXP&issuer=Example");
+
+        TOTPGenerator generator = TOTPGenerator.fromURI(uri);
+
+        assertThat(generator.getPeriod(), is(Duration.ofSeconds(30)));
+        assertThat(generator.getAlgorithm(), is(HMACAlgorithm.SHA1));
+        assertThat(generator.getPasswordLength(), is(6));
+    }
+
+    @Test
+    void fromURIRoundTripWithUrlUnsafeCharacters() throws URISyntaxException {
+        TOTPGenerator generator = new TOTPGenerator.Builder(secret)
+                .withHOTPGenerator(builder -> {
+                    builder.withAlgorithm(HMACAlgorithm.SHA256);
+                    builder.withPasswordLength(8);
+                })
+                .withPeriod(Duration.ofSeconds(60))
+                .build();
+
+        URI uri = generator.getURI("mac&cheese: 100%", "ac@cou.nt");
+        TOTPGenerator parsed = TOTPGenerator.fromURI(uri);
+
+        assertThat(parsed.getPeriod(), is(generator.getPeriod()));
+        assertThat(parsed.getAlgorithm(), is(generator.getAlgorithm()));
+        assertThat(parsed.getPasswordLength(), is(generator.getPasswordLength()));
+        assertThat(parsed.getURI("mac&cheese: 100%", "ac@cou.nt").toString(), is(uri.toString()));
+    }
+
     @Nested
     class BuilderTest {
         @Test

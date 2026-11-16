@@ -36,7 +36,10 @@ public final class HOTPGenerator {
     }
 
     public static HOTPGenerator fromURI(final URI uri) throws URISyntaxException {
+        URIHelper.validateOTPAuthType(uri, OTP_TYPE);
+
         Map<String, String> query = URIHelper.queryItems(uri);
+        validateIssuerConsistency(uri, query);
 
         byte[] secret = Optional.ofNullable(query.get(URIHelper.SECRET))
                 .map(s -> s.getBytes(UTF_8))
@@ -57,6 +60,14 @@ public final class HOTPGenerator {
         }
 
         return builder.build();
+    }
+
+    static void validateIssuerConsistency(final URI uri, final Map<String, String> query) {
+        String labelIssuer = URIHelper.parseLabel(uri)[0];
+        String queryIssuer = query.get(URIHelper.ISSUER);
+
+        if (labelIssuer != null && queryIssuer != null && !labelIssuer.equals(queryIssuer))
+            throw new IllegalArgumentException("Issuer in label does not match issuer query parameter");
     }
 
     public static HOTPGenerator withDefaultValues(final byte[] secret) {

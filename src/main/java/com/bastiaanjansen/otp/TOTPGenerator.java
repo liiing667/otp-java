@@ -35,7 +35,10 @@ public final class TOTPGenerator {
     }
 
     public static TOTPGenerator fromURI(URI uri) throws URISyntaxException {
+        URIHelper.validateOTPAuthType(uri, OTP_TYPE);
+
         Map<String, String> query = URIHelper.queryItems(uri);
+        HOTPGenerator.validateIssuerConsistency(uri, query);
 
         String secret = Optional.ofNullable(query.get(URIHelper.SECRET))
                 .orElseThrow(() -> new IllegalArgumentException("Secret query parameter must be set"));
