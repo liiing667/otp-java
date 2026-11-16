@@ -81,13 +81,23 @@ When you don't already have a secret, you can let the library generate it:
 // To generate a Base32-encoded secret with 160 bits
 byte[] secret = SecretGenerator.generate();
 
-// To generate a Base32-encoded secret with a custom amount of bits
+// To generate a Base32-encoded secret with the recommended amount of bits for an HMAC algorithm
+byte[] secret = SecretGenerator.generate(HMACAlgorithm.SHA256);
+
+// To generate a Base32-encoded secret with a custom amount of bits (at least 128 bits)
 byte[] secret = SecretGenerator.generate(512);
 ```
 
+Secrets, password lengths and algorithms are validated against shared boundaries
+(see `OTPValidator`): secrets must provide at least 128 bits of entropy and passwords must be 6 to 8 digits.
+Violations are reported with classifiable exceptions: `InvalidSecretException` and
+`InvalidPasswordLengthException`, both subclasses of `OTPValidationException` (which extends
+`IllegalArgumentException` for backward compatibility). When importing an OTPAuth URI, violations are
+wrapped in a `URISyntaxException` and remain available via `URISyntaxException#getCause()`.
+
 It is also possible to create a HOTP instance based on an OTPAuth URI. When algorithm or digits are not specified, the default values will be used.
 ```java
-URI uri = new URI("otpauth://hotp/issuer?secret=ABCDEFGHIJKLMNOP&algorithm=SHA1&digits=6&counter=8237");
+URI uri = new URI("otpauth://hotp/issuer?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&algorithm=SHA1&digits=6&counter=8237");
 HOTPGenerator hotp = HOTPGenerator.fromURI(uri);
 ```
 
@@ -133,7 +143,7 @@ TOTPGenerator totp = new TOTPGenerator.Builder(secret)
 ```
 Or create a `TOTP` instance from an OTPAuth URI:
 ```java
-URI uri = new URI("otpauth://totp/issuer?secret=ABCDEFGHIJKLMNOP&algorithm=SHA1&digits=6&period=30");
+URI uri = new URI("otpauth://totp/issuer?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&algorithm=SHA1&digits=6&period=30");
 TOTPGenerator totpGenerator = TOTPGenerator.fromURI(uri);
 ```
 

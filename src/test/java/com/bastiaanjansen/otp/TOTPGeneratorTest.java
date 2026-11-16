@@ -318,6 +318,14 @@ class TOTPGeneratorTest {
     }
 
     @Test
+    void fromURIWithOutOfBoundsDigits_throwsURISyntaxExceptionWithClassifiableCause() throws URISyntaxException {
+        URI uri = new URI("otpauth://totp/issuer:account?digits=9&secret=" + secret);
+
+        URISyntaxException exception = assertThrows(URISyntaxException.class, () -> TOTPGenerator.fromURI(uri));
+        assertThat(exception.getCause(), is(Matchers.instanceOf(InvalidPasswordLengthException.class)));
+    }
+
+    @Test
     void fromURIWithPasswordLengthIs9_throwsURISyntaxException() throws URISyntaxException {
         URI uri = new URI("otpauth://totp/issuer:account?digits=9&secret=" + secret);
 
@@ -350,6 +358,12 @@ class TOTPGeneratorTest {
         @Test
         void builderWithEmptySecret_throwsIllegalArgumentException() {
             assertThrows(IllegalArgumentException.class, () -> new TOTPGenerator.Builder(new byte[]{}).build());
+        }
+
+        @Test
+        void builderWithTooShortSecret_throwsInvalidSecretException() {
+            // 8 Base32 characters decode to 5 bytes = 40 bits, below the 128 bits minimum
+            assertThrows(InvalidSecretException.class, () -> new TOTPGenerator.Builder("JBSWY3DP").build());
         }
 
         @Test

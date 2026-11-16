@@ -12,6 +12,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -40,7 +41,7 @@ public final class HOTPGenerator {
 
         byte[] secret = Optional.ofNullable(query.get(URIHelper.SECRET))
                 .map(s -> s.getBytes(UTF_8))
-                .orElseThrow(() -> new IllegalArgumentException("Secret query parameter must be set"));
+                .orElseThrow(() -> new InvalidSecretException("Secret query parameter must be set"));
 
         Builder builder = new Builder(secret);
 
@@ -53,7 +54,9 @@ public final class HOTPGenerator {
                     .map(HMACAlgorithm::valueOf)
                     .ifPresent(builder::withAlgorithm);
         } catch (Exception e) {
-            throw new URISyntaxException(uri.toString(), "URI could not be parsed");
+            URISyntaxException exception = new URISyntaxException(uri.toString(), "URI could not be parsed");
+            exception.initCause(e);
+            throw exception;
         }
 
         return builder.build();
@@ -209,11 +212,10 @@ public final class HOTPGenerator {
          * {@link org.apache.commons.codec.binary.Base32#encode(byte[])}}
          *
          * @param secret Base32 encoded secret
+         * @throws InvalidSecretException when the secret does not meet the minimum entropy requirement
          */
-        public Builder(final byte[] secret) {
-            if (secret.length == 0)
-                throw new IllegalArgumentException("Secret must not be empty");
-
+        public Builder(final byte[] secret) throws InvalidSecretException {
+            OTPValidator.validateSecret(secret);
             this.secret = secret;
             this.passwordLength = DEFAULT_PASSWORD_LENGTH;
             this.algorithm = DEFAULT_HMAC_ALGORITHM;
@@ -226,25 +228,23 @@ public final class HOTPGenerator {
             this(secret.getBytes(UTF_8));
         }
 
-        public Builder withPasswordLength(final int passwordLength) {
-            if (!passwordLengthIsValid(passwordLength))
-                throw new IllegalArgumentException("Password length must be between 6 and 8 digits");
-
+        /**
+         * @param passwordLength number of digits of the generated passwords
+         * @throws InvalidPasswordLengthException when the length is outside the supported boundaries
+         */
+        public Builder withPasswordLength(final int passwordLength) throws InvalidPasswordLengthException {
+            OTPValidator.validatePasswordLength(passwordLength);
             this.passwordLength = passwordLength;
             return this;
         }
 
         public Builder withAlgorithm(final HMACAlgorithm algorithm) {
-            this.algorithm = algorithm;
+            this.algorithm = Objects.requireNonNull(algorithm, "Algorithm must not be null");
             return this;
         }
 
         public HOTPGenerator build() {
             return new HOTPGenerator(this);
-        }
-
-        private boolean passwordLengthIsValid(final int passwordLength) {
-            return passwordLength >= 6 && passwordLength <= 8;
         }
     }
 }

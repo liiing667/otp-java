@@ -201,6 +201,14 @@ class HOTPGeneratorTest {
     }
 
     @Test
+    void fromURIWithOutOfBoundsDigits_throwsURISyntaxExceptionWithClassifiableCause() throws URISyntaxException {
+        URI uri = new URI("otpauth://hotp/issuer?digits=5&counter=10&secret=" + secret);
+
+        URISyntaxException exception = assertThrows(URISyntaxException.class, () -> HOTPGenerator.fromURI(uri));
+        assertThat(exception.getCause(), is(Matchers.instanceOf(InvalidPasswordLengthException.class)));
+    }
+
+    @Test
     void fromURIWithInvalidAlgorithm_throwsURISyntaxException() throws URISyntaxException {
         URI uri = new URI("otpauth://hotp/issuer?counter=10&algorithm=invalid&secret=" + secret);
 
@@ -219,6 +227,12 @@ class HOTPGeneratorTest {
         @Test
         void builderWithEmptySecret_throwsIllegalArgumentException() {
             assertThrows(IllegalArgumentException.class, () -> new HOTPGenerator.Builder(new byte[]{}).build());
+        }
+
+        @Test
+        void builderWithTooShortSecret_throwsInvalidSecretException() {
+            // 8 Base32 characters decode to 5 bytes = 40 bits, below the 128 bits minimum
+            assertThrows(InvalidSecretException.class, () -> new HOTPGenerator.Builder("JBSWY3DP").build());
         }
 
         @Test

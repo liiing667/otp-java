@@ -38,7 +38,7 @@ public final class TOTPGenerator {
         Map<String, String> query = URIHelper.queryItems(uri);
 
         String secret = Optional.ofNullable(query.get(URIHelper.SECRET))
-                .orElseThrow(() -> new IllegalArgumentException("Secret query parameter must be set"));
+                .orElseThrow(() -> new InvalidSecretException("Secret query parameter must be set"));
 
         Builder builder = new Builder(secret);
 
@@ -55,7 +55,9 @@ public final class TOTPGenerator {
                     .map(HMACAlgorithm::valueOf)
                     .ifPresent(builder.hotpBuilder::withAlgorithm);
         } catch (Exception e) {
-            throw new URISyntaxException(uri.toString(), "URI could not be parsed");
+            URISyntaxException exception = new URISyntaxException(uri.toString(), "URI could not be parsed");
+            exception.initCause(e);
+            throw exception;
         }
 
         return builder.build();
